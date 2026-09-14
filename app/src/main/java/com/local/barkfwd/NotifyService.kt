@@ -8,16 +8,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import kotlin.concurrent.thread
 
 class NotifyService : NotificationListenerService() {
-    private val handler = Handler(Looper.getMainLooper())
-    private val pending = HashSet<String>()
     private var lastHash = ""
 
     override fun onListenerConnected() {
@@ -77,16 +73,6 @@ class NotifyService : NotificationListenerService() {
         val group = prefs.groupFor(pkg) ?: return
         if (prefs.barkKey.isBlank()) return
         sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), posted.notification)
-        if (!pending.add(pkg)) return
-        handler.postDelayed({
-            pending.remove(pkg)
-            val later = try {
-                activeNotifications?.filter { it.packageName == pkg }?.maxByOrNull { it.postTime }
-            } catch (e: Exception) {
-                null
-            }
-            sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), (later ?: posted).notification)
-        }, 1800)
     }
 
     private fun sendParsed(pkg: String, group: String, key: String, icon: String, notification: Notification) {
@@ -112,6 +98,7 @@ class NotifyService : NotificationListenerService() {
             body = body.substring(title.length).trim().trimStart(':', '-', ' ')
         }
         if (title.isBlank() && body.isBlank()) return
+        if (isCount(body)) return
         val hash = "$pkg|$title|$body"
         if (hash == lastHash) return
         lastHash = hash
@@ -135,5 +122,13 @@ class NotifyService : NotificationListenerService() {
         } catch (e: Exception) {
         }
         return who to texts.joinToString("\n")
+    }
+
+    private fun isCount(s: String): Boolean {
+        val t = s.trim().lowercase()
+        if (t == "new message") return true
+        val i = t.indexOf(' ')
+        if (i <= 0) return false
+        return t.substring(0, i).all { it.isDigit() } && t.length < 24
     }
 }
