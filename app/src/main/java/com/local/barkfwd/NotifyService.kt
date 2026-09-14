@@ -100,17 +100,19 @@ class NotifyService : NotificationListenerService() {
             .orEmpty()
         val joined = lines.joinToString("\n")
         var chatText = ""
-        var chatWho = ""
+        var chatWho = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim().orEmpty()
         try {
-            val style = Notification.MessagingStyle.extractMessagingStyleFromNotification(newest.notification)
-            if (style != null) {
-                chatWho = style.conversationTitle?.toString()?.trim().orEmpty()
-                chatText = style.messages.mapNotNull { it.text?.toString()?.trim() }
-                    .filter { it.isNotEmpty() && !isShortCount(it) }
-                    .joinToString("\n")
-                if (chatWho.isEmpty()) {
-                    chatWho = style.messages.lastOrNull()?.sender?.toString()?.trim().orEmpty()
+            val packs = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            if (packs != null) {
+                val texts = ArrayList<String>()
+                for (p in packs) {
+                    val b = p as? android.os.Bundle ?: continue
+                    val t = b.getCharSequence("text")?.toString()?.trim().orEmpty()
+                    val who = b.getCharSequence("sender")?.toString()?.trim().orEmpty()
+                    if (who.isNotEmpty()) chatWho = who
+                    if (t.isNotEmpty() && !isShortCount(t)) texts.add(t)
                 }
+                chatText = texts.joinToString("\n")
             }
         } catch (e: Exception) {
         }
