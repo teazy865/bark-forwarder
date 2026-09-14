@@ -64,7 +64,7 @@ class NotifyService : NotificationListenerService() {
             } else {
                 startForeground(42, n)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
         }
     }
 
@@ -85,13 +85,13 @@ class NotifyService : NotificationListenerService() {
     private fun flush(pkg: String, group: String, key: String, icon: String) {
         val items = try {
             activeNotifications?.filter { it.packageName == pkg }.orEmpty()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             emptyList()
         }
         if (items.isEmpty()) return
         val newest = items.maxByOrNull { it.postTime } ?: return
         val extras = newest.notification.extras
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        var title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
         val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
@@ -99,11 +99,30 @@ class NotifyService : NotificationListenerService() {
             ?.filter { it.isNotEmpty() }
             .orEmpty()
         val joined = lines.joinToString("\n")
+        var chatText = ""
+        var chatWho = ""
+        try {
+            val style = Notification.MessagingStyle.extractMessagingStyleFromNotification(newest.notification)
+            if (style != null) {
+                chatWho = style.conversationTitle?.toString()?.trim().orEmpty()
+                chatText = style.messages.mapNotNull { it.text?.toString()?.trim() }
+                    .filter { it.isNotEmpty() && !isShortCount(it) }
+                    .joinToString("\n")
+                if (chatWho.isEmpty()) {
+                    chatWho = style.messages.lastOrNull()?.sender?.toString()?.trim().orEmpty()
+                }
+            }
+        } catch (e: Exception) {
+        }
         var body = when {
+            chatText.isNotEmpty() -> chatText
             joined.isNotEmpty() && !isShortCount(joined) -> joined
             big.isNotEmpty() && !isShortCount(big) -> big
             text.isNotEmpty() && !isShortCount(text) -> text
             else -> text
+        }
+        if (title.isBlank() || title.equals(group, true) || isShortCount(title)) {
+            if (chatWho.isNotEmpty()) title = chatWho
         }
         if (body.startsWith(title) && body.length > title.length) {
             body = body.substring(title.length).trim().trimStart(':', '-', ' ')
