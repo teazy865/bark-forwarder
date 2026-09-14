@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
@@ -69,68 +70,48 @@ class NotifyService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
-        val n = sbn ?: return
-        val pkg = n.packageName ?: return
+        val posted = sbn ?: return
+        val pkg = posted.packageName ?: return
         if (pkg == packageName) return
         val prefs = Prefs(this)
         val group = prefs.groupFor(pkg) ?: return
         if (prefs.barkKey.isBlank()) return
+        sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), posted.notification)
         if (!pending.add(pkg)) return
         handler.postDelayed({
             pending.remove(pkg)
-            flush(pkg, group, prefs.barkKey, prefs.iconFor(pkg))
-        }, 1600)
+            val later = try {
+                activeNotifications?.filter { it.packageName == pkg }?.maxByOrNull { it.postTime }
+            } catch (e: Exception) {
+                null
+            }
+            sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), (later ?: posted).notification)
+        }, 1800)
     }
 
-    private fun flush(pkg: String, group: String, key: String, icon: String) {
-        val items = try {
-            activeNotifications?.filter { it.packageName == pkg }.orEmpty()
-        } catch (e: Exception) {
-            emptyList()
-        }
-        if (items.isEmpty()) return
-        val newest = items.maxByOrNull { it.postTime } ?: return
-        val extras = newest.notification.extras
+    private fun sendParsed(pkg: String, group: String, key: String, icon: String, notification: Notification) {
+        val extras = notification.extras
         var title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim().orEmpty()
+        val sub = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim().orEmpty()
+        val info = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()?.trim().orEmpty()
         val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             ?.mapNotNull { it?.toString()?.trim() }
             ?.filter { it.isNotEmpty() }
             .orEmpty()
         val joined = lines.joinToString("\n")
-        var chatText = ""
-        var chatWho = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim().orEmpty()
-        try {
-            val packs = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
-            if (packs != null) {
-                val texts = ArrayList<String>()
-                for (p in packs) {
-                    val b = p as? android.os.Bundle ?: continue
-                    val t = b.getCharSequence("text")?.toString()?.trim().orEmpty()
-                    val who = b.getCharSequence("sender")?.toString()?.trim().orEmpty()
-                    if (who.isNotEmpty()) chatWho = who
-                    if (t.isNotEmpty() && !isShortCount(t)) texts.add(t)
-                }
-                chatText = texts.joinToString("\n")
-            }
-        } catch (e: Exception) {
+        val chat = chatFrom(extras)
+        if (title.isBlank() || title.equals(group, true)) {
+            if (chat.first.isNotEmpty()) title = chat.first
         }
-        var body = when {
-            chatText.isNotEmpty() -> chatText
-            joined.isNotEmpty() && !isShortCount(joined) -> joined
-            big.isNotEmpty() && !isShortCount(big) -> big
-            text.isNotEmpty() && !isShortCount(text) -> text
-            else -> text
-        }
-        if (title.isBlank() || title.equals(group, true) || isShortCount(title)) {
-            if (chatWho.isNotEmpty()) title = chatWho
-        }
+        var body = listOf(chat.second, joined, big, text, sub, info)
+            .firstOrNull { it.isNotBlank() }
+            .orEmpty()
         if (body.startsWith(title) && body.length > title.length) {
             body = body.substring(title.length).trim().trimStart(':', '-', ' ')
         }
         if (title.isBlank() && body.isBlank()) return
-        if (isShortCount(body) && body.length < 8) return
         val hash = "$pkg|$title|$body"
         if (hash == lastHash) return
         lastHash = hash
@@ -138,12 +119,21 @@ class NotifyService : NotificationListenerService() {
         thread { BarkClient.send(key, head, body.ifBlank { title }, group, icon, 5) }
     }
 
-    private fun isShortCount(s: String): Boolean {
-        val t = s.trim().lowercase()
-        if (t == "new message") return true
-        val i = t.indexOf(' ')
-        if (i <= 0) return false
-        val first = t.substring(0, i)
-        return first.all { it.isDigit() } && t.length < 24
+    private fun chatFrom(extras: Bundle): Pair<String, String> {
+        var who = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim().orEmpty()
+        val texts = ArrayList<String>()
+        try {
+            val packs = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return who to ""
+            for (p in packs) {
+                if (p is Bundle) {
+                    val t = p.getCharSequence("text")?.toString()?.trim().orEmpty()
+                    val w = p.getCharSequence("sender")?.toString()?.trim().orEmpty()
+                    if (w.isNotEmpty()) who = w
+                    if (t.isNotEmpty()) texts.add(t)
+                }
+            }
+        } catch (e: Exception) {
+        }
+        return who to texts.joinToString("\n")
     }
 }
