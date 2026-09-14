@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Пуш в Bark"
+            android:text="iPhone Pushes"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -70,12 +70,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="—" />
+            android:text="--" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Дубликат появится в списке отдельной строкой, если система дала ему своё имя пакета. Если клон во втором пространстве — слушатель из основного профиля его не увидит." />
+            android:text="Дубликат появится в списке отдельной строкой, если система дала ему своё имя пакета. Если клон во втором пространстве -- слушатель из основного профиля его не увидит." />
     </LinearLayout>
 </ScrollView>
