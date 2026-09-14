@@ -101,7 +101,7 @@ class NotifyService : NotificationListenerService() {
         if (title.isEmpty()) title = cleanup(titleRaw)
 
         if (body.isNotEmpty() && title.isNotEmpty() && body.startsWith(title) && body != title) {
-            val cut = body.removePrefix(title).trimStart(':', '--', '-', ' ').trim()
+                        val cut = body.removePrefix(title).trimStart { it == ':' || it == '-' || it == ' ' }.trim()
             if (cut.isNotEmpty() && !isCountOnly(cut)) {
                 return Parsed(title, cut, 5 + cut.length)
             }
