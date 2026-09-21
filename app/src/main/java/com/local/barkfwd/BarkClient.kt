@@ -11,12 +11,13 @@ object BarkClient {
         body: String,
         group: String,
         icon: String = "",
+        openUrl: String = "",
         tries: Int = 5
     ): Result<String> {
         if (key.isBlank()) return Result.failure(IllegalArgumentException("No Bark key"))
         var last: Result<String> = Result.failure(IllegalStateException("No attempt"))
         repeat(tries) { i ->
-            last = once(key, title, body, group, icon)
+            last = once(key, title, body, group, icon, openUrl)
             if (last.isSuccess) return last
             if (i < tries - 1) {
                 try {
@@ -29,7 +30,14 @@ object BarkClient {
         return last
     }
 
-    private fun once(key: String, title: String, body: String, group: String, icon: String): Result<String> {
+    private fun once(
+        key: String,
+        title: String,
+        body: String,
+        group: String,
+        icon: String,
+        openUrl: String
+    ): Result<String> {
         val cleanKey = key.trim().trim('/')
         val url = URL("https://api.day.app/$cleanKey/")
         return try {
@@ -46,10 +54,11 @@ object BarkClient {
                 "group" to group
             )
             if (icon.isNotBlank()) fields.add("icon" to icon.trim())
+            if (openUrl.isNotBlank()) fields.add("url" to openUrl.trim())
             val payload = fields.joinToString("&") { (k, v) ->
                 "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}"
             }
-            conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF-8)) }
             val code = conn.responseCode
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 .bufferedReader().readText()

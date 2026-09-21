@@ -72,10 +72,17 @@ class NotifyService : NotificationListenerService() {
         val prefs = Prefs(this)
         val group = prefs.groupFor(pkg) ?: return
         if (prefs.barkKey.isBlank()) return
-        sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), posted.notification)
+        sendParsed(pkg, group, prefs.barkKey, prefs.iconFor(pkg), prefs.openUrlFor(pkg), posted.notification)
     }
 
-    private fun sendParsed(pkg: String, group: String, key: String, icon: String, notification: Notification) {
+    private fun sendParsed(
+        pkg: String,
+        group: String,
+        key: String,
+        icon: String,
+        openUrl: String,
+        notification: Notification
+    ) {
         val extras = notification.extras
         var title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
@@ -103,7 +110,7 @@ class NotifyService : NotificationListenerService() {
         if (hash == lastHash) return
         lastHash = hash
         val head = if (title.isBlank() || title.equals(group, true)) group else "$group: $title"
-        thread { BarkClient.send(key, head, body.ifBlank { title }, group, icon, 5) }
+        thread { BarkClient.send(key, head, body.ifBlank { title }, group, icon, openUrl, 5) }
     }
 
     private fun chatFrom(extras: Bundle): Pair<String, String> {

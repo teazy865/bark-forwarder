@@ -43,10 +43,16 @@ class MainActivity : AppCompatActivity() {
             prefs.barkKey = key.text.toString()
             status.text = "Sending test..."
             thread {
-                val r = BarkClient.send(prefs.barkKey, "Test Bark", "If you see this on iPhone, the key works", "TEST")
+                val r = BarkClient.send(
+                    prefs.barkKey,
+                    "Test Bark",
+                    "If you see this on iPhone, the key works",
+                    "TEST",
+                    openUrl = "vk://"
+                )
                 runOnUiThread {
                     status.text = r.fold(
-                        onSuccess = { "Test sent. Check iPhone." },
+                        onSuccess = { "Test sent. Check iPhone. Tap should open VK." },
                         onFailure = { "Error: ${it.message}" }
                     )
                 }
@@ -66,11 +72,12 @@ class MainActivity : AppCompatActivity() {
         appsBox.removeAllViews()
         for (app in prefs.apps()) {
             val iconNote = if (app.icon.isBlank()) "no icon" else "icon set"
+            val urlNote = if (app.openUrl.isBlank()) "no tap URL" else app.openUrl
             val row = TextView(this).apply {
-                text = "${app.label}  ->  ${app.group}  ($iconNote)\n${app.pkg}\ntap: icon URL    long tap: delete"
+                text = "${app.label}  ->  ${app.group}  ($iconNote)\n$urlNote\n${app.pkg}\ntap: icon + URL    long tap: delete"
                 textSize = 15f
                 setPadding(0, 20, 0, 20)
-                setOnClickListener { askIcon(app) }
+                setOnClickListener { askAppSettings(app) }
                 setOnLongClickListener {
                     prefs.removeApp(app.pkg)
                     renderApps()
@@ -84,18 +91,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun askIcon(app: WatchedApp) {
-        val input = EditText(this).apply {
+    private fun askAppSettings(app: WatchedApp) {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 20, 40, 0)
+        }
+        val iconInput = EditText(this).apply {
             hint = "https://...png"
             setText(app.icon)
             setSingleLine()
         }
+        val urlInput = EditText(this).apply {
+            hint = "vk://  or  https://web.max.ru"
+            setText(app.openUrl)
+            setSingleLine()
+        }
+        box.addView(TextView(this).apply { text = "Icon URL" })
+        box.addView(iconInput)
+        box.addView(TextView(this).apply {
+            text = "Open on iPhone tap"
+            setPadding(0, 24, 0, 0)
+        })
+        box.addView(urlInput)
         AlertDialog.Builder(this)
-            .setTitle("Icon for ${app.label}")
-            .setMessage("Direct image link for Bark. GitHub raw URL works.")
-            .setView(input)
+            .setTitle(app.label)
+            .setMessage("Direct PNG for Bark icon. URL Scheme or https link opens on tap.")
+            .setView(box)
             .setPositiveButton("Save") { _, _ ->
-                prefs.setIcon(app.pkg, input.text.toString())
+                prefs.setIcon(app.pkg, iconInput.text.toString())
+                prefs.setOpenUrl(app.pkg, urlInput.text.toString())
                 renderApps()
             }
             .setNegativeButton("Cancel", null)
