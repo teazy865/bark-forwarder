@@ -3,6 +3,7 @@ package com.local.barkfwd
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 object BarkClient {
     fun send(
@@ -55,10 +56,11 @@ object BarkClient {
             )
             if (icon.isNotBlank()) fields.add("icon" to icon.trim())
             if (openUrl.isNotBlank()) fields.add("url" to openUrl.trim())
+            val enc = StandardCharsets.UTF_8.name()
             val payload = fields.joinToString("&") { (k, v) ->
-                "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}"
+                URLEncoder.encode(k, enc) + "=" + URLEncoder.encode(v, enc)
             }
-            conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF-8)) }
+            conn.outputStream.use { it.write(payload.toByteArray(StandardCharsets.UTF_8)) }
             val code = conn.responseCode
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 .bufferedReader().readText()
