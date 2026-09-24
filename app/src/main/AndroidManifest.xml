@@ -13,7 +13,7 @@
         android:roundIcon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+        android:theme="@style/Theme.BarkFwd"
         android:usesCleartextTraffic="false">
 
         <activity
@@ -31,6 +31,11 @@
             android:name=".AppPickerActivity"
             android:exported="false"
             android:label="Choose app" />
+
+        <activity
+            android:name=".EditAppActivity"
+            android:exported="false"
+            android:label="App" />
 
         <service
             android:name=".NotifyService"

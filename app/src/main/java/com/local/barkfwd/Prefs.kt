@@ -1,13 +1,17 @@
 package com.local.barkfwd
 
 import android.content.Context
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class WatchedApp(
     val pkg: String,
     val label: String,
     val group: String,
     val icon: String = "",
-    val openUrl: String = ""
+    val openUrl: String = "",
+    val enabled: Boolean = true
 )
 
 class Prefs(context: Context) {
@@ -27,14 +31,16 @@ class Prefs(context: Context) {
                 val pkg = parts[0]
                 val label = parts[1]
                 val group = parts.getOrElse(2) { guessGroup(pkg, label) }
-                val icon = parts.getOrElse(3) { "" }
+                val icon = parts.getOrElse(3) { "" }.ifBlank { defaultIcon(pkg, label) }
                 val storedUrl = parts.getOrElse(4) { "" }
+                val enabled = parts.getOrElse(5) { "1" } != "0"
                 WatchedApp(
                     pkg,
                     label,
                     group,
                     icon,
-                    storedUrl.ifBlank { defaultOpenUrl(pkg, label) }
+                    storedUrl.ifBlank { defaultOpenUrl(pkg, label) },
+                    enabled
                 )
             }
         }.toMutableList()
@@ -42,7 +48,8 @@ class Prefs(context: Context) {
 
     fun saveApps(list: List<WatchedApp>) {
         val raw = list.joinToString("\n") {
-            "${it.pkg}|${it.label}|${it.group}|${it.icon}|${it.openUrl.replace("|", "%7C")}"
+            val on = if (it.enabled) "1" else "0"
+            "${it.pkg}|${it.label}|${it.group}|${it.icon}|${it.openUrl.replace("|", "%7C")}|$on"
         }
         p.edit().putString("apps", raw).apply()
     }
@@ -56,7 +63,8 @@ class Prefs(context: Context) {
                 label,
                 guessGroup(pkg, label),
                 defaultIcon(pkg, label),
-                defaultOpenUrl(pkg, label)
+                defaultOpenUrl(pkg, label),
+                true
             )
         )
         saveApps(list)
@@ -66,25 +74,46 @@ class Prefs(context: Context) {
         saveApps(apps().filterNot { it.pkg == pkg })
     }
 
-    fun setIcon(pkg: String, icon: String) {
+    fun updateApp(pkg: String, icon: String, openUrl: String) {
         saveApps(apps().map {
-            if (it.pkg == pkg) it.copy(icon = icon.trim()) else it
+            if (it.pkg == pkg) it.copy(icon = icon.trim(), openUrl = openUrl.trim()) else it
         })
     }
 
-    fun setOpenUrl(pkg: String, openUrl: String) {
+    fun setEnabled(pkg: String, enabled: Boolean) {
         saveApps(apps().map {
-            if (it.pkg == pkg) it.copy(openUrl = openUrl.trim()) else it
+            if (it.pkg == pkg) it.copy(enabled = enabled) else it
         })
     }
 
-    fun groupFor(pkg: String): String? = apps().find { it.pkg == pkg }?.group
+    fun app(pkg: String): WatchedApp? = apps().find { it.pkg == pkg }
 
-    fun iconFor(pkg: String): String = apps().find { it.pkg == pkg }?.icon.orEmpty()
+    fun groupFor(pkg: String): String? {
+        val a = app(pkg) ?: return null
+        return if (a.enabled) a.group else null
+    }
 
-    fun openUrlFor(pkg: String): String = apps().find { it.pkg == pkg }?.openUrl.orEmpty()
+    fun iconFor(pkg: String): String = app(pkg)?.icon.orEmpty()
+    fun openUrlFor(pkg: String): String = app(pkg)?.openUrl.orEmpty()
+
+    fun addEvent(group: String, text: String) {
+        val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val line = "$time|$group|$text"
+        val old = p.getString("log", "") ?: ""
+        val next = (listOf(line) + old.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
+        p.edit().putString("log", next.joinToString("\n")).apply()
+    }
+
+    fun events(): List<String> {
+        val raw = p.getString("log", "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return raw.lineSequence().filter { it.isNotBlank() }.toList()
+    }
 
     companion object {
+        const val ICON_MAX = "https://raw.githubusercontent.com/teazy865/icons/refs/heads/main/IMG_0246.png"
+        const val ICON_VK = "https://raw.githubusercontent.com/teazy865/icons/refs/heads/main/IMG_0251.png"
+
         fun guessGroup(pkg: String, label: String): String {
             val s = "$pkg $label".lowercase()
             return when {
@@ -96,8 +125,8 @@ class Prefs(context: Context) {
 
         fun defaultIcon(pkg: String, label: String): String {
             return when (guessGroup(pkg, label)) {
-                "MAX" -> "https://raw.githubusercontent.com/rewritte/icons/main/max.png"
-                "VK" -> "https://raw.githubusercontent.com/rewritte/icons/main/vk.png"
+                "MAX" -> ICON_MAX
+                "VK" -> ICON_VK
                 else -> ""
             }
         }
@@ -105,15 +134,15 @@ class Prefs(context: Context) {
         fun defaultOpenUrl(pkg: String, label: String): String {
             return when (guessGroup(pkg, label)) {
                 "MAX" -> "https://web.max.ru"
-                "VK" -> "vk://"
+                "VK" -> "vk://vk.com/im"
                 else -> ""
             }
         }
 
         fun defaultApps() = mutableListOf(
-            WatchedApp("ru.oneme.app", "MAX", "MAX", defaultIcon("ru.oneme.app", "MAX"), defaultOpenUrl("ru.oneme.app", "MAX")),
-            WatchedApp("com.vkontakte.android", "VK", "VK", defaultIcon("com.vkontakte.android", "VK"), defaultOpenUrl("com.vkontakte.android", "VK")),
-            WatchedApp("com.vk.im", "VK Messenger", "VK", defaultIcon("com.vk.im", "VK"), defaultOpenUrl("com.vk.im", "VK"))
+            WatchedApp("ru.oneme.app", "MAX", "MAX", ICON_MAX, "https://web.max.ru", true),
+            WatchedApp("com.vkontakte.android", "VK", "VK", ICON_VK, "vk://vk.com/im", true),
+            WatchedApp("com.vk.im", "VK Messenger", "VK", ICON_VK, "vk://vk.com/im", true)
         )
     }
 }

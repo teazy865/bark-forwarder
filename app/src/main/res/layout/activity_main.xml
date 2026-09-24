@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="20dp">
+    android:background="@color/bg"
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,29 +14,42 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="iPhone Pushes"
+            android:textColor="@color/text"
             android:textSize="22sp"
             android:textStyle="bold" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Ключ из приложения Bark на iPhone. Только буквы и цифры, без https://api.day.app/" />
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView android:id="@+id/stKey" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="15sp" />
+            <TextView android:id="@+id/stAccess" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/text" android:textSize="15sp" />
+            <TextView android:id="@+id/stRun" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/text" android:textSize="15sp" />
+        </LinearLayout>
 
         <EditText
             android:id="@+id/key"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_card"
             android:hint="Ключ Bark"
+            android:importantForAutofill="no"
             android:inputType="textVisiblePassword"
-            android:importantForAutofill="no" />
+            android:padding="14dp"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:text="Приложения"
+            android:textColor="@color/text"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -51,31 +65,51 @@
             android:layout_marginTop="8dp"
             android:text="Добавить приложение" />
 
-        <Button
-            android:id="@+id/access"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Включить доступ к уведомлениям" />
+            android:layout_marginTop="18dp"
+            android:text="Последние на iPhone"
+            android:textColor="@color/text"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/test"
+        <LinearLayout
+            android:id="@+id/log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Тестовый пуш" />
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="12dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/test"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Тестовый пуш" />
+
+            <Button
+                android:id="@+id/access"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="Доступ" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="12dp"
+            android:textColor="@color/muted"
             android:text="--" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Дубликат появится в списке отдельной строкой, если система дала ему своё имя пакета. Если клон во втором пространстве -- слушатель из основного профиля его не увидит." />
     </LinearLayout>
 </ScrollView>

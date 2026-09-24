@@ -6,17 +6,19 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.LayoutInflater
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private lateinit var appsBox: LinearLayout
+    private lateinit var logBox: LinearLayout
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,6 +30,7 @@ class MainActivity : AppCompatActivity() {
         }
         val key = findViewById<EditText>(R.id.key)
         appsBox = findViewById(R.id.apps)
+        logBox = findViewById(R.id.log)
         status = findViewById(R.id.status)
         key.setText(prefs.barkKey)
         key.setOnFocusChangeListener { _, has -> if (!has) prefs.barkKey = key.text.toString() }
@@ -41,19 +44,20 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.test).setOnClickListener {
             prefs.barkKey = key.text.toString()
-            status.text = "Sending test..."
+            status.text = "Отправка..."
             thread {
                 val r = BarkClient.send(
                     prefs.barkKey,
                     "Test Bark",
                     "If you see this on iPhone, the key works",
                     "TEST",
-                    openUrl = "vk://"
+                    Prefs.ICON_VK,
+                    "vk://vk.com/im"
                 )
                 runOnUiThread {
                     status.text = r.fold(
-                        onSuccess = { "Test sent. Check iPhone. Tap should open VK." },
-                        onFailure = { "Error: ${it.message}" }
+                        onSuccess = { "Тест ушёл. Нажмите пуш на iPhone." },
+                        onFailure = { "Ошибка: ${it.message}" }
                     )
                 }
             }
@@ -62,68 +66,70 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        renderStatus()
         renderApps()
-        status.text =
-            if (listenerOn()) "Notification access is on."
-            else "Turn on notification access."
+        renderLog()
+    }
+
+    private fun renderStatus() {
+        val keyOk = prefs.barkKey.isNotBlank()
+        val acc = listenerOn()
+        colorLine(findViewById(R.id.stKey), keyOk, if (keyOk) "Ключ Bark сохранён" else "Вставьте ключ Bark")
+        colorLine(findViewById(R.id.stAccess), acc, if (acc) "Доступ к уведомлениям" else "Нужен доступ к уведомлениям")
+        colorLine(findViewById(R.id.stRun), acc, if (acc) "Служба запущена · Running" else "Служба не запущена")
+        status.text = if (acc) "Можно писать в MAX и VK." else "Включите доступ к уведомлениям."
+    }
+
+    private fun colorLine(tv: TextView, ok: Boolean, text: String) {
+        tv.text = (if (ok) "✓  " else "!  ") + text
+        tv.setTextColor(getColor(if (ok) R.color.ok else R.color.bad))
     }
 
     private fun renderApps() {
         appsBox.removeAllViews()
+        val inf = LayoutInflater.from(this)
         for (app in prefs.apps()) {
-            val iconNote = if (app.icon.isBlank()) "no icon" else "icon set"
-            val urlNote = if (app.openUrl.isBlank()) "no tap URL" else app.openUrl
-            val row = TextView(this).apply {
-                text = "${app.label}  ->  ${app.group}  ($iconNote)\n$urlNote\n${app.pkg}\ntap: icon + URL    long tap: delete"
-                textSize = 15f
-                setPadding(0, 20, 0, 20)
-                setOnClickListener { askAppSettings(app) }
-                setOnLongClickListener {
-                    prefs.removeApp(app.pkg)
-                    renderApps()
-                    true
-                }
+            val row = inf.inflate(R.layout.item_app, appsBox, false)
+            row.findViewById<TextView>(R.id.badge).text = app.group.take(1)
+            row.findViewById<TextView>(R.id.name).text = app.label
+            val url = if (app.openUrl.isBlank()) "URL не задан" else app.openUrl
+            row.findViewById<TextView>(R.id.meta).text = url
+            val sw = row.findViewById<Switch>(R.id.on)
+            sw.isChecked = app.enabled
+            sw.setOnCheckedChangeListener { _, on -> prefs.setEnabled(app.pkg, on) }
+            row.setOnClickListener {
+                startActivity(Intent(this, EditAppActivity::class.java).putExtra("pkg", app.pkg))
             }
             appsBox.addView(row)
         }
         if (prefs.apps().isEmpty()) {
-            appsBox.addView(TextView(this).apply { text = "List is empty. Add MAX, VK or a clone." })
+            appsBox.addView(TextView(this).apply {
+                text = "Список пуст. Добавьте MAX или VK."
+                setTextColor(getColor(R.color.muted))
+            })
         }
     }
 
-    private fun askAppSettings(app: WatchedApp) {
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 0)
+    private fun renderLog() {
+        logBox.removeAllViews()
+        val ev = prefs.events()
+        if (ev.isEmpty()) {
+            logBox.addView(TextView(this).apply {
+                text = "Пока пусто. Напишите себе в MAX или VK."
+                setTextColor(getColor(R.color.muted))
+            })
+            return
         }
-        val iconInput = EditText(this).apply {
-            hint = "https://...png"
-            setText(app.icon)
-            setSingleLine()
+        for (line in ev) {
+            val parts = line.split('|')
+            val text = if (parts.size >= 3) "${parts[0]}   ${parts[1]}   ${parts[2]}" else line
+            logBox.addView(TextView(this).apply {
+                this.text = text
+                setTextColor(getColor(R.color.text))
+                textSize = 14f
+                setPadding(0, 6, 0, 6)
+            })
         }
-        val urlInput = EditText(this).apply {
-            hint = "vk://  or  https://web.max.ru"
-            setText(app.openUrl)
-            setSingleLine()
-        }
-        box.addView(TextView(this).apply { text = "Icon URL" })
-        box.addView(iconInput)
-        box.addView(TextView(this).apply {
-            text = "Open on iPhone tap"
-            setPadding(0, 24, 0, 0)
-        })
-        box.addView(urlInput)
-        AlertDialog.Builder(this)
-            .setTitle(app.label)
-            .setMessage("Direct PNG for Bark icon. URL Scheme or https link opens on tap.")
-            .setView(box)
-            .setPositiveButton("Save") { _, _ ->
-                prefs.setIcon(app.pkg, iconInput.text.toString())
-                prefs.setOpenUrl(app.pkg, urlInput.text.toString())
-                renderApps()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun listenerOn(): Boolean {
