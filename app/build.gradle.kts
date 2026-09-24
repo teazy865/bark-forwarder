@@ -13,9 +13,21 @@ android {
         versionCode = 4
         versionName = "1.3"
     }
+    signingConfigs {
+        create("fixed") {
+            storeFile = file("keystore.jks")
+            storePassword = "barkfwd12"
+            keyAlias = "barkfwd"
+            keyPassword = "barkfwd12"
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixed")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fixed")
         }
     }
     compileOptions {
